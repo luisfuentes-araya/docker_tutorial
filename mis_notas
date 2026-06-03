@@ -1,0 +1,39 @@
+docker + kubernetes
+
+
+para crear una imahen necesito un Dockerfile, archivo donde va todo lo necesario ya tu sabes 
+
+dockerfile:
+
+From ngnix:latest —> ocupo ese servidor que es para web su ultima bersion y otros codigos mas como
+
+COPY /micarpetahml /user/share/ngnix/html
+
+
+
+
+
+codigos:
+
+docker images —> muestra imagenes
+docker images —filter=reference=‘*1.0’ -> filtra x tag/version
+docker images —no-trunc -> muestra el numero completo
+
+
+docker ps —> muestra contenedores
+docker ps —size -> muestra el tamaño 
+
+docker stop o4c3e3a —> detiene el contenedor 
+
+docker build -t sitioweb:latest . —-> para crear uno el t es pra ponerle nombre y latest es porque saldra en el TAG tu escribes la version y el punto al final es q le dices aqui
+
+docker rmi -f eeaaiqua76 —> borra el contenedor forzosamente por la f 
+
+docker run -it —rm  -d -p 8080:80 —name web sitioweb   —> it es de interactivo para ver logs o todo lo q este usando algun servidor en la terminal de  mi proyecto , rm es de remove para eliminar cualquier version del contenedor previamente ejecutandose , d es para q este listo para llamarlo cusndo quieras y no lo llamara altiro , p es para poner el puerto primero el que me comunicare con mi host osea al contenedor y el contenedor por medio del :80 a la aplicacion , name es para ponerle nombre, sitioweb al final esnpara referirse a la imahen que vamos a tirar
+
+
+docker rmi amin/sitioweb:latest —>  elimina una imagen por su nombre que era el amin/sitioweb 
+
+docker rmi -f 18c17aae3  —> eliminar una imagen por la id forzosamente 
+
+docker run -it —rm  -d -p 8080:80 -v ./sitio:/user/share/nginx/html —name web sitioweb —> lo mismo de siempre  solo que sitio es la carpeta del vs code donde tengo todo y es todo lo q guardare fotos, o etc a mi archivo
