@@ -170,3 +170,18 @@ docker compose up -d --build
 
 Este bloque te sirve como cierre del tutorial porque muestra una arquitectura realista y funcional, no solo comandos sueltos.  
 También te deja una plantilla que puedes reutilizar en otros proyectos cambiando nombres, puertos y credenciales.
+
+
+Para que funcione obvio la API en react debe llamarse 
+const API_URL = "https://localhost:8080";
+
+en Spring Boot debes poner jdbc:postgresql://db:5432/clientesdb pq db es el nombre de postgre en compose
+
+nombres deben ser:
+mi-proyecto/
+├─ backend/
+├─ frontend/
+├─ db/
+└─ docker-compose.yml
+
+
