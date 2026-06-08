@@ -1,0 +1,172 @@
+# EJEMPLO REAL
+
+# Este ejemplo muestra un proyecto funcional con frontend, backend y base de datos usando Docker y Docker Compose.
+# La idea es tener una estructura clara, portable y fácil de levantar en cualquier máquina.
+
+## Stack del proyecto
+
+- **Frontend:** React.
+- **Backend:** Spring Boot.
+- **Base de datos:** PostgreSQL.
+- **Orquestación local:** Docker Compose.
+
+## Estructura sugerida
+
+```txt
+# Carpeta raíz del proyecto
+mi-proyecto/
+├─ backend/              # Carpeta del backend Spring Boot
+│  ├─ Dockerfile         # Dockerfile del backend
+│  ├─ pom.xml            # Dependencias y configuración Maven
+│  └─ src/               # Código fuente Java
+├─ frontend/             # Carpeta del frontend React
+│  ├─ Dockerfile         # Dockerfile del frontend
+│  ├─ package.json       # Dependencias y scripts de Node/React
+│  └─ src/               # Código fuente del frontend
+├─ db/                   # Carpeta para scripts de base de datos
+│  └─ init.sql           # Script inicial para crear tablas o cargar datos
+├─ docker-compose.yml    # Archivo para levantar todos los servicios
+└─ README.md             # Documentación del proyecto
+```
+
+## docker-compose.yml
+
+```yaml
+version: "3.8" # Versión del formato de Docker Compose
+
+services: # Aquí se definen los contenedores o servicios de la aplicación
+
+  db: # Servicio de base de datos PostgreSQL
+    image: postgres:16 # Imagen oficial de PostgreSQL versión 16
+    container_name: clientes-db # Nombre fijo del contenedor de base de datos
+    restart: unless-stopped # Reinicia el contenedor salvo que lo detengas manualmente
+    environment: # Variables de entorno necesarias para crear la base
+      POSTGRES_DB: clientesdb # Nombre de la base de datos
+      POSTGRES_USER: admin # Usuario de PostgreSQL
+      POSTGRES_PASSWORD: admin123 # Contraseña del usuario
+    ports:
+      - "5432:5432" # Expone PostgreSQL en el puerto 5432 del host
+    volumes:
+      - pgdata:/var/lib/postgresql/data # Guarda datos de PostgreSQL de forma persistente
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql # Ejecuta este script al crear la BD
+
+  backend: # Servicio del backend Spring Boot
+    build: # Indica que la imagen se construye desde un Dockerfile local
+      context: ./backend # Carpeta donde está el Dockerfile del backend
+    container_name: clientes-backend # Nombre fijo del contenedor del backend
+    restart: unless-stopped # Reinicia si se cae
+    environment: # Variables que usa Spring Boot para conectarse a la BD
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/clientesdb # URL interna hacia el servicio db
+      SPRING_DATASOURCE_USERNAME: admin # Usuario de la BD
+      SPRING_DATASOURCE_PASSWORD: admin123 # Contraseña de la BD
+      SPRING_JPA_HIBERNATE_DDL_AUTO: update # Actualiza las tablas automáticamente si hace falta
+      SERVER_PORT: 8080 # Puerto donde correrá Spring Boot dentro del contenedor
+    ports:
+      - "8080:8080" # Expone el backend en el puerto 8080 del host
+    depends_on:
+      - db # Espera a que la base de datos exista antes de iniciar
+
+  frontend: # Servicio del frontend React
+    build: # Indica que se construye desde un Dockerfile local
+      context: ./frontend # Carpeta donde está el Dockerfile del frontend
+    container_name: clientes-frontend # Nombre fijo del contenedor del frontend
+    restart: unless-stopped # Reinicia si se cae
+    ports:
+      - "3000:80" # Expone el Nginx del frontend en el puerto 3000 del host
+    depends_on:
+      - backend # Espera al backend antes de arrancar
+
+volumes: # Sección para declarar volúmenes persistentes
+  pgdata: # Volumen donde se guarda la data real de PostgreSQL
+```
+
+## backend/Dockerfile
+
+```Dockerfile
+FROM eclipse-temurin:21-jdk AS build # Imagen base con JDK para compilar Java
+WORKDIR /app # Define la carpeta de trabajo dentro del contenedor
+COPY . . # Copia todo el código del backend al contenedor
+RUN chmod +x mvnw && ./mvnw clean package -DskipTests # Da permisos al wrapper y compila el proyecto sin pruebas
+
+FROM eclipse-temurin:21-jre # Segunda etapa: imagen más liviana solo para ejecutar Java
+WORKDIR /app # Define la carpeta donde vivirá la app ejecutada
+COPY --from=build /app/target/*.jar app.jar # Copia el JAR generado desde la etapa build
+EXPOSE 8080 # Documenta que la app escucha en el puerto 8080
+CMD ["java", "-jar", "app.jar"] # Comando que inicia la aplicación
+```
+
+## frontend/Dockerfile
+
+```Dockerfile
+FROM node:20 AS build # Imagen base con Node para construir React
+WORKDIR /app # Define el directorio de trabajo
+COPY package*.json ./ # Copia los archivos de dependencias primero para aprovechar caché
+RUN npm install # Instala dependencias de Node
+COPY . . # Copia el resto del frontend
+RUN npm run build # Genera el build de producción de React
+
+FROM nginx:latest # Imagen final con Nginx para servir archivos estáticos
+COPY --from=build /app/dist /usr/share/nginx/html # Copia el build generado al directorio público de Nginx
+EXPOSE 80 # Documenta que Nginx escucha en el puerto 80
+CMD ["nginx", "-g", "daemon off;"] # Mantiene Nginx corriendo en primer plano
+```
+
+## db/init.sql
+
+```sql
+CREATE TABLE IF NOT EXISTS cliente ( -- Crea la tabla cliente si no existe
+  id SERIAL PRIMARY KEY, -- Identificador autoincremental
+  rut VARCHAR(20) UNIQUE NOT NULL, -- RUT único y obligatorio
+  nombre VARCHAR(100) NOT NULL, -- Nombre obligatorio
+  apellido_paterno VARCHAR(100) NOT NULL, -- Apellido paterno obligatorio
+  apellido_materno VARCHAR(100), -- Apellido materno opcional
+  email VARCHAR(150) UNIQUE, -- Correo único
+  activo BOOLEAN DEFAULT TRUE -- Estado activo por defecto
+);
+
+INSERT INTO cliente (rut, nombre, apellido_paterno, apellido_materno, email, activo) -- Inserta datos de ejemplo
+VALUES
+('12.345.678-9', 'Juan', 'Pérez', 'González', 'juan.perez@email.com', TRUE), -- Cliente 1
+('15.678.901-2', 'María', 'Sánchez', 'Ruiz', 'maria.sanchez@email.com', TRUE); -- Cliente 2
+```
+
+## application.properties
+
+```properties
+spring.datasource.url=jdbc:postgresql://db:5432/clientesdb # URL de conexión a PostgreSQL dentro de la red de Docker
+spring.datasource.username=admin # Usuario de base de datos
+spring.datasource.password=admin123 # Contraseña de base de datos
+spring.jpa.hibernate.ddl-auto=update # Actualiza tablas automáticamente
+spring.jpa.show-sql=true # Muestra las consultas SQL en consola
+server.port=8080 # Puerto donde corre Spring Boot
+```
+
+## Cómo funciona
+
+1. PostgreSQL arranca primero y crea la base `clientesdb`.  
+2. Spring Boot se conecta usando el nombre del servicio `db`, no una IP fija.  
+3. React se construye y Nginx sirve los archivos estáticos.  
+4. El frontend consume la API del backend en `http://localhost:8080`.  
+5. Todo queda levantado con un solo comando:  
+
+```bash
+docker compose up -d --build
+```
+
+## Puertos expuestos
+
+- Frontend: `http://localhost:3000`
+- Backend: `http://localhost:8080`
+- Base de datos: `localhost:5432`
+
+## Qué demuestra este ejemplo
+
+- Cómo separar frontend, backend y base de datos.
+- Cómo conectar servicios por nombre dentro de Docker Compose.
+- Cómo usar volúmenes para persistir datos de PostgreSQL.
+- Cómo construir imágenes distintas para frontend y backend.
+
+## Idea para tu repo
+
+Este bloque te sirve como cierre del tutorial porque muestra una arquitectura realista y funcional, no solo comandos sueltos.  
+También te deja una plantilla que puedes reutilizar en otros proyectos cambiando nombres, puertos y credenciales.
